@@ -66,6 +66,12 @@ public interface BorshInput {
           final Class optionalClass = (Class)optionalArgs[0];
           field.set(object, this.readOptional(optionalClass));
         }
+        else if(fieldClass == byte[].class){//fieldClass.isArray()
+            if(field.get(object) == null)
+                field.set(object, this.readByteArray());
+            else
+                field.set(object, this.readFixedArray( Array.getLength(field.get(object)) ));
+        }
         else {
           field.set(object, this.read(field.getType()));
         }
@@ -143,6 +149,16 @@ public interface BorshInput {
     final T[] elements = (T[])Array.newInstance(klass, length);
     for (int i = 0; i < length; i++) {
       elements[i] = this.read(klass);
+    }
+    return elements;
+  }
+  
+  //easy solution to problems with Generic Types
+  default public @NonNull byte[] readByteArray() {
+    final int length = this.readU32();
+    final byte[] elements = new byte[length];
+    for (int i = 0; i < length; i++) {
+      elements[i] = this.read(Byte.class);
     }
     return elements;
   }
