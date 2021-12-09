@@ -6,6 +6,8 @@ import static java.util.Objects.requireNonNull;
 
 import androidx.annotation.NonNull;
 import java.lang.reflect.Field;
+import java.lang.reflect.Array;
+import java.lang.reflect.InvocationTargetException;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -55,12 +57,29 @@ public interface BorshOutput<Self> {
 
   default public @NonNull Self writePOJO(final @NonNull Object object) {
     try {
+      final Object objectNew = object.getClass().getConstructor().newInstance();
       for (final Field field : object.getClass().getDeclaredFields()) {
         field.setAccessible(true);
-        this.write(field.get(object));
+        if(field.get(object).getClass().isArray()){
+            if(field.get(objectNew) == null)
+                this.writeArray((byte[])field.get(object));
+            else
+                this.writeFixedArray((byte[])field.get(object));
+        }else
+            this.write(field.get(object));
+
       }
     }
+    catch (NoSuchMethodException error) {
+      throw new RuntimeException(error);
+    }
+    catch (InstantiationException error) {
+      throw new RuntimeException(error);
+    }
     catch (IllegalAccessException error) {
+      throw new RuntimeException(error);
+    }
+    catch (InvocationTargetException error) {
       throw new RuntimeException(error);
     }
     return (Self)this;
@@ -127,6 +146,14 @@ public interface BorshOutput<Self> {
 
   default public @NonNull Self writeFixedArray(final @NonNull byte[] array) {
     return this.write(array);
+  }
+  
+  default public @NonNull Self writeArray(final @NonNull byte[] array) {
+    this.writeU32(array.length);
+    for (final byte element : array) {
+      this.write(element);
+    }
+    return (Self)this;
   }
 
   default public @NonNull <T> Self writeArray(final @NonNull T[] array) {
